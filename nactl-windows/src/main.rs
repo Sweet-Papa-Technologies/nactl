@@ -38,8 +38,13 @@ struct Cli {
     interface: Option<String>,
 }
 
+const VERSION: &str = "1.0.0";
+
 #[derive(Subcommand)]
 enum Commands {
+    /// Print version information
+    Version,
+
     /// Get comprehensive network connection status
     Status,
 
@@ -164,6 +169,27 @@ fn main() -> ExitCode {
     let interface = cli.interface.as_deref();
 
     let result = match cli.command {
+        Commands::Version => {
+            if cli.json || !atty::is(atty::Stream::Stdout) {
+                let version_data = serde_json::json!({
+                    "success": true,
+                    "data": {
+                        "name": "nactl",
+                        "version": VERSION,
+                        "platform": "windows"
+                    }
+                });
+                if cli.pretty {
+                    println!("{}", serde_json::to_string_pretty(&version_data).unwrap());
+                } else {
+                    println!("{}", serde_json::to_string(&version_data).unwrap());
+                }
+            } else {
+                println!("nactl {} (windows)", VERSION);
+            }
+            Ok(ExitCodes::Success as u8)
+        }
+
         Commands::Status => status::execute(format, interface),
 
         Commands::Ping {

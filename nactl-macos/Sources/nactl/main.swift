@@ -3,13 +3,16 @@ import Foundation
 
 /// nactl - Network Admin Control CLI for macOS
 /// A native CLI tool for network diagnostics, Wi-Fi management, and network stack operations.
+let APP_VERSION = "1.0.0"
+
 @main
 struct Nactl: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "nactl",
         abstract: "Network administration CLI tool for macOS",
-        version: "1.0.0",
+        version: APP_VERSION,
         subcommands: [
+            VersionCommand.self,
             StatusCommand.self,
             PingCommand.self,
             TraceCommand.self,
@@ -19,6 +22,31 @@ struct Nactl: ParsableCommand {
             ProxyCommand.self,
         ]
     )
+}
+
+// MARK: - Version Command
+struct VersionData: Encodable {
+    let name: String
+    let version: String
+    let platform: String
+}
+
+struct VersionCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "version",
+        abstract: "Print version information"
+    )
+
+    @OptionGroup var globalOptions: GlobalOptions
+
+    mutating func run() throws {
+        if globalOptions.shouldOutputJSON {
+            let data = VersionData(name: "nactl", version: APP_VERSION, platform: "macos")
+            JSONOutput.success(data, pretty: globalOptions.pretty)
+        } else {
+            print("nactl \(APP_VERSION) (macos)")
+        }
+    }
 }
 
 // MARK: - Exit Codes

@@ -8,7 +8,9 @@
       "Bash(cargo fmt:*)",
       "Bash(grep:*)",
       "Bash(wc:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(.build/debug/nactl version:*)",
+      "Bash(.build/debug/nactl:*)"
     ]
   }
 }
