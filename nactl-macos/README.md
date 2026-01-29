@@ -18,17 +18,27 @@ A native Swift CLI tool for network diagnostics, Wi-Fi management, and network s
 # Debug build
 swift build
 
-# Release build
+# Release build (native architecture)
 swift build -c release
+# Binary: .build/release/nactl
 
-# The binary will be at .build/release/nactl
+# Universal binary (arm64 + x86_64) - works on both Apple Silicon and Intel Macs
+swift build -c release --arch arm64 --arch x86_64
+# Binary: .build/apple/Products/Release/nactl
+
+# Verify universal binary architectures
+lipo -info .build/apple/Products/Release/nactl
+# Output: Architectures in the fat file: nactl are: x86_64 arm64
 ```
 
 ## Installation
 
 ```bash
-# Copy to a location in your PATH
+# Install native build
 sudo cp .build/release/nactl /usr/local/bin/
+
+# Or install universal binary (recommended for distribution)
+sudo cp .build/apple/Products/Release/nactl /usr/local/bin/
 ```
 
 ## Commands
@@ -167,13 +177,16 @@ To grant permission after initial denial:
 For distribution, the binary should be signed and notarized:
 
 ```bash
+# Build universal binary first
+swift build -c release --arch arm64 --arch x86_64
+
 # Sign for distribution
 codesign --sign "Developer ID Application: Your Name" \
          --options runtime \
-         .build/release/nactl
+         .build/apple/Products/Release/nactl
 
 # Create zip for notarization
-zip nactl.zip .build/release/nactl
+zip nactl.zip .build/apple/Products/Release/nactl
 
 # Submit for notarization
 xcrun notarytool submit nactl.zip --apple-id YOUR_APPLE_ID --team-id YOUR_TEAM_ID
