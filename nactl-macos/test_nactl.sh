@@ -11,12 +11,25 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Path to nactl binary
-NACTL="${NACTL_PATH:-.build/debug/nactl}"
-
-# Check if binary exists
-if [ ! -f "$NACTL" ]; then
-    echo -e "${RED}Error: nactl binary not found at $NACTL${NC}"
+# Path to nactl binary - check multiple locations
+if [ -n "$NACTL_PATH" ]; then
+    NACTL="$NACTL_PATH"
+elif [ -f ".build/debug/nactl" ]; then
+    NACTL=".build/debug/nactl"
+elif [ -f ".build/apple/Products/Debug/nactl" ]; then
+    NACTL=".build/apple/Products/Debug/nactl"
+elif [ -f ".build/release/nactl" ]; then
+    NACTL=".build/release/nactl"
+elif [ -f ".build/apple/Products/Release/nactl" ]; then
+    NACTL=".build/apple/Products/Release/nactl"
+else
+    echo -e "${RED}Error: nactl binary not found${NC}"
+    echo "Checked locations:"
+    echo "  - .build/debug/nactl"
+    echo "  - .build/apple/Products/Debug/nactl"
+    echo "  - .build/release/nactl"
+    echo "  - .build/apple/Products/Release/nactl"
+    echo ""
     echo "Build first with: swift build"
     echo "Or set NACTL_PATH environment variable"
     exit 1

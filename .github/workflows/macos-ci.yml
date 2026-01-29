@@ -15,7 +15,7 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: macos-latest
+    runs-on: macos-14  # Use macos-14 for stable Xcode/SDK compatibility
 
     defaults:
       run:
@@ -25,66 +25,70 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Swift
-      uses: swift-actions/setup-swift@v2
-      with:
-        swift-version: '5.9'
-
-    - name: Show Swift version
-      run: swift --version
+    - name: Show Xcode version
+      run: |
+        xcodebuild -version
+        swift --version
+        echo "Available SDKs:"
+        xcodebuild -showsdks
 
     - name: Resolve dependencies
       run: swift package resolve
 
-    - name: Build (Debug)
-      run: swift build -v
+    - name: Build Debug (Universal Binary)
+      run: swift build -v --arch arm64 --arch x86_64
 
-    - name: Build (Release)
-      run: swift build -c release -v
+    - name: Build Release (Universal Binary)
+      run: swift build -c release -v --arch arm64 --arch x86_64
+
+    - name: Verify universal binary
+      run: |
+        echo "=== Debug Binary ==="
+        file .build/apple/Products/Debug/nactl
+        lipo -info .build/apple/Products/Debug/nactl
+        echo ""
+        echo "=== Release Binary ==="
+        file .build/apple/Products/Release/nactl
+        lipo -info .build/apple/Products/Release/nactl
 
     - name: Make test script executable
       run: chmod +x test_nactl.sh
 
-    - name: Run tests
+    - name: Run safe tests
       run: |
-        # Run safe tests only (skip wifi scan which needs Location Services)
+        export NACTL_PATH=".build/apple/Products/Debug/nactl"
         ./test_nactl.sh 2>&1 || true
       continue-on-error: true  # Some tests may fail in CI (Location Services, network)
 
-    - name: Verify binary exists
-      run: |
-        ls -la .build/debug/nactl
-        ls -la .build/release/nactl
-
     - name: Test help command
-      run: .build/debug/nactl --help
+      run: .build/apple/Products/Debug/nactl --help
 
     - name: Test version command
-      run: .build/debug/nactl --version
+      run: .build/apple/Products/Debug/nactl --version
 
     - name: Test status command (JSON)
-      run: .build/debug/nactl status --json || true
+      run: .build/apple/Products/Debug/nactl status --json || true
       continue-on-error: true  # May fail if no network interface
 
     - name: Test ping localhost
-      run: .build/debug/nactl ping 127.0.0.1 --count 2 --json
+      run: .build/apple/Products/Debug/nactl ping 127.0.0.1 --count 2 --json
 
-    - name: Upload debug binary
+    - name: Upload debug binary (Universal)
       uses: actions/upload-artifact@v4
       with:
-        name: nactl-macos-debug
-        path: nactl-macos/.build/debug/nactl
+        name: nactl-macos-debug-universal
+        path: nactl-macos/.build/apple/Products/Debug/nactl
         retention-days: 7
 
-    - name: Upload release binary
+    - name: Upload release binary (Universal)
       uses: actions/upload-artifact@v4
       with:
-        name: nactl-macos-release
-        path: nactl-macos/.build/release/nactl
+        name: nactl-macos-release-universal
+        path: nactl-macos/.build/apple/Products/Release/nactl
         retention-days: 30
 
   lint:
-    runs-on: macos-latest
+    runs-on: macos-14
 
     defaults:
       run:
@@ -93,11 +97,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
-    - name: Setup Swift
-      uses: swift-actions/setup-swift@v2
-      with:
-        swift-version: '5.9'
 
     - name: Check Swift formatting (if swiftformat available)
       run: |
