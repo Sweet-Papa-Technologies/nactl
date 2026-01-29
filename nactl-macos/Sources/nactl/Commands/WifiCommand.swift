@@ -3,6 +3,49 @@ import Foundation
 import CoreWLAN
 import CoreLocation
 
+// MARK: - Location Services Helper
+
+/// Helper class to handle Location Services authorization for CLI apps
+class LocationAuthHelper: NSObject, CLLocationManagerDelegate {
+    private let locationManager = CLLocationManager()
+    private var authorizationCallback: ((CLAuthorizationStatus) -> Void)?
+    private let semaphore = DispatchSemaphore(value: 0)
+    private var resultStatus: CLAuthorizationStatus = .notDetermined
+
+    override init() {
+        super.init()
+        locationManager.delegate = self
+    }
+
+    /// Check and request Location Services authorization
+    /// Returns the current authorization status after attempting to request if needed
+    func checkAndRequestAuthorization() -> CLAuthorizationStatus {
+        let currentStatus = locationManager.authorizationStatus
+
+        // If already determined, return current status
+        if currentStatus != .notDetermined {
+            return currentStatus
+        }
+
+        // Request authorization - this will trigger system prompt
+        // Note: For CLI apps, the prompt may appear but won't block
+        locationManager.requestWhenInUseAuthorization()
+
+        // Wait briefly for the authorization to be determined
+        // The system dialog is asynchronous
+        let deadline = DispatchTime.now() + .seconds(1)
+        _ = semaphore.wait(timeout: deadline)
+
+        // Check status again
+        return locationManager.authorizationStatus
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        resultStatus = manager.authorizationStatus
+        semaphore.signal()
+    }
+}
+
 /// nactl wifi - Wi-Fi management commands
 struct WifiCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -23,11 +66,36 @@ struct WifiCommand: ParsableCommand {
         mutating func run() throws {
             let startTime = Date()
 
-            // Check Location Services authorization
-            let locationManager = CLLocationManager()
-            let authStatus = locationManager.authorizationStatus
-            if authStatus == .denied || authStatus == .restricted {
-                exitWithError(.locationServicesDenied, json: globalOptions.shouldOutputJSON, pretty: globalOptions.pretty)
+            // Check if Location Services are enabled system-wide
+            if !CLLocationManager.locationServicesEnabled() {
+                exitWithError(
+                    .locationServicesDenied,
+                    message: "Location Services are disabled system-wide. Enable in System Settings > Privacy & Security > Location Services",
+                    json: globalOptions.shouldOutputJSON,
+                    pretty: globalOptions.pretty
+                )
+            }
+
+            // Check and request Location Services authorization
+            let authHelper = LocationAuthHelper()
+            let authStatus = authHelper.checkAndRequestAuthorization()
+
+            switch authStatus {
+            case .denied, .restricted:
+                exitWithError(
+                    .locationServicesDenied,
+                    message: "Location Services permission denied. Grant permission in System Settings > Privacy & Security > Location Services > Terminal (or your terminal app)",
+                    json: globalOptions.shouldOutputJSON,
+                    pretty: globalOptions.pretty
+                )
+            case .notDetermined:
+                // Still not determined - the user hasn't responded to the prompt yet
+                // Try to proceed anyway, the scan might trigger the prompt
+                break
+            case .authorizedAlways, .authorizedWhenInUse, .authorized:
+                break // Good to go
+            @unknown default:
+                break
             }
 
             // Get Wi-Fi client and interface

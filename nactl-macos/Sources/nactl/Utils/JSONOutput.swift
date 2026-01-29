@@ -210,3 +210,26 @@ func exitWithError(_ error: NactlError, json: Bool = true, pretty: Bool = false)
     }
     Darwin.exit(error.exitCode.rawValue)
 }
+
+/// Exit with error and custom message override
+func exitWithError(_ error: NactlError, message: String, json: Bool = true, pretty: Bool = false) -> Never {
+    if json {
+        let response = ErrorResponse(error: ErrorDetails(
+            code: error.errorCode,
+            message: message,
+            suggestion: error.suggestion
+        ))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = pretty ? [.prettyPrinted, .sortedKeys] : .sortedKeys
+        if let data = try? encoder.encode(response),
+           let jsonString = String(data: data, encoding: .utf8) {
+            fputs(jsonString + "\n", stderr)
+        }
+    } else {
+        JSONOutput.printError("Error: \(message)")
+        if let suggestion = error.suggestion {
+            JSONOutput.printError("Suggestion: \(suggestion)")
+        }
+    }
+    Darwin.exit(error.exitCode.rawValue)
+}

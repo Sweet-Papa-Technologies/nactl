@@ -5,6 +5,7 @@
 //! DNS configuration, and network stack operations.
 
 use clap::{Parser, Subcommand};
+use std::panic;
 use std::process::ExitCode;
 
 mod commands;
@@ -15,6 +16,32 @@ use commands::{dns, ping, proxy, stack, status, trace, wifi};
 use errors::ExitCodes;
 use utils::output::OutputFormat;
 
+/// Set up panic handler to ensure errors are visible
+fn setup_panic_handler() {
+    panic::set_hook(Box::new(|panic_info| {
+        let msg = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown panic".to_string()
+        };
+
+        let location = if let Some(loc) = panic_info.location() {
+            format!(" at {}:{}", loc.file(), loc.line())
+        } else {
+            String::new()
+        };
+
+        // Output as JSON error for consistency
+        eprintln!(
+            r#"{{"success":false,"error":{{"code":"PANIC","message":"Internal error: {}{}"}}}}"#,
+            msg.replace('"', "'"),
+            location
+        );
+    }));
+}
+
 /// Network Admin Control - Windows CLI
 #[derive(Parser)]
 #[command(name = "nactl")]
@@ -23,7 +50,7 @@ use utils::output::OutputFormat;
 #[command(about = "Network administration and diagnostics tool", long_about = None)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 
     /// Force JSON output
     #[arg(short = 'j', long, global = true)]
@@ -151,7 +178,22 @@ enum ProxyCommands {
 }
 
 fn main() -> ExitCode {
-    let cli = Cli::parse();
+    // Set up panic handler first thing
+    setup_panic_handler();
+
+    // Parse CLI arguments - use try_parse to handle errors gracefully
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(e) => {
+            // Clap errors (help, version, parse errors) should be printed
+            let _ = e.print();
+            return if e.use_stderr() {
+                ExitCode::from(ExitCodes::InvalidArguments as u8)
+            } else {
+                ExitCode::from(ExitCodes::Success as u8)
+            };
+        }
+    };
 
     // Determine output format
     let format = if cli.json || !atty::is(atty::Stream::Stdout) {
@@ -169,7 +211,15 @@ fn main() -> ExitCode {
     let interface = cli.interface.as_deref();
 
     let result = match cli.command {
-        Commands::Version => {
+        None => {
+            // No subcommand - show help
+            use clap::CommandFactory;
+            Cli::command().print_help().ok();
+            println!(); // Add newline after help
+            Ok(ExitCodes::Success as u8)
+        }
+
+        Some(Commands::Version) => {
             if cli.json || !atty::is(atty::Stream::Stdout) {
                 let version_data = serde_json::json!({
                     "success": true,
@@ -190,21 +240,21 @@ fn main() -> ExitCode {
             Ok(ExitCodes::Success as u8)
         }
 
-        Commands::Status => status::execute(format, interface),
+        Some(Commands::Status) => status::execute(format, interface),
 
-        Commands::Ping {
+        Some(Commands::Ping {
             host,
             count,
             timeout,
-        } => ping::execute(&host, count, timeout, format),
+        }) => ping::execute(&host, count, timeout, format),
 
-        Commands::Trace {
+        Some(Commands::Trace {
             host,
             max_hops,
             timeout,
-        } => trace::execute(&host, max_hops, timeout, format),
+        }) => trace::execute(&host, max_hops, timeout, format),
 
-        Commands::Dns { action } => match action {
+        Some(Commands::Dns { action }) => match action {
             DnsCommands::Flush => dns::flush(format),
             DnsCommands::Set { primary, secondary } => {
                 dns::set(&primary, secondary.as_deref(), format, interface)
@@ -212,16 +262,16 @@ fn main() -> ExitCode {
             DnsCommands::Reset => dns::reset(format, interface),
         },
 
-        Commands::Stack { action } => match action {
+        Some(Commands::Stack { action }) => match action {
             StackCommands::Reset { level } => stack::reset(&level, format, interface),
         },
 
-        Commands::Wifi { action } => match action {
+        Some(Commands::Wifi { action }) => match action {
             WifiCommands::Scan => wifi::scan(format),
             WifiCommands::Forget { ssid } => wifi::forget(&ssid, format),
         },
 
-        Commands::Proxy { action } => match action {
+        Some(Commands::Proxy { action }) => match action {
             ProxyCommands::Get => proxy::get(format),
             ProxyCommands::Clear => proxy::clear(format),
         },
@@ -244,21 +294,25 @@ mod atty {
 
     pub fn is(_stream: Stream) -> bool {
         // On Windows, check if stdout is a console
+        // Use catch_unwind to prevent panics from crashing the app
         #[cfg(windows)]
         {
-            use windows::Win32::System::Console::{
-                GetConsoleMode, GetStdHandle, CONSOLE_MODE, STD_OUTPUT_HANDLE,
-            };
+            std::panic::catch_unwind(|| {
+                use windows::Win32::System::Console::{
+                    GetConsoleMode, GetStdHandle, CONSOLE_MODE, STD_OUTPUT_HANDLE,
+                };
 
-            unsafe {
-                let handle = GetStdHandle(STD_OUTPUT_HANDLE);
-                if let Ok(h) = handle {
-                    let mut mode = CONSOLE_MODE::default();
-                    GetConsoleMode(h, &mut mode).is_ok()
-                } else {
-                    false
+                unsafe {
+                    let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+                    if let Ok(h) = handle {
+                        let mut mode = CONSOLE_MODE::default();
+                        GetConsoleMode(h, &mut mode).is_ok()
+                    } else {
+                        false
+                    }
                 }
-            }
+            })
+            .unwrap_or(false)
         }
 
         #[cfg(not(windows))]

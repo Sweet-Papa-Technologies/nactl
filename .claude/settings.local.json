@@ -10,7 +10,8 @@
       "Bash(wc:*)",
       "Bash(tree:*)",
       "Bash(.build/debug/nactl version:*)",
-      "Bash(.build/debug/nactl:*)"
+      "Bash(.build/debug/nactl:*)",
+      "Bash(cargo check:*)"
     ]
   }
 }
