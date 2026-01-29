@@ -5,7 +5,7 @@ let package = Package(
     name: "nactl",
     platforms: [.macOS(.v12)],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", exact: "1.3.1"),
+        .package(url: "https://github.com/apple/swift-argument-parser", exact: "1.7.0"),
     ],
     targets: [
         .executableTarget(
