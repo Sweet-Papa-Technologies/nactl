@@ -34,6 +34,7 @@ impl From<ExitCodes> for u8 {
 /// Error codes for JSON output
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[allow(dead_code)]
 pub enum ErrorCode {
     GeneralError,
     InvalidArguments,
@@ -56,6 +57,7 @@ pub struct ErrorResponse {
     pub suggestion: Option<String>,
 }
 
+#[allow(dead_code)]
 impl ErrorResponse {
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
         Self {
@@ -73,6 +75,7 @@ impl ErrorResponse {
 
 /// Main error type for nactl
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct NactlError {
     pub exit_code: ExitCodes,
     pub response: ErrorResponse,
@@ -120,10 +123,12 @@ impl NactlError {
         )
     }
 
+    #[allow(dead_code)]
     pub fn timeout(message: impl Into<String>) -> Self {
         Self::new(ExitCodes::Timeout, ErrorCode::Timeout, message)
     }
 
+    #[allow(dead_code)]
     pub fn not_available(message: impl Into<String>) -> Self {
         Self::new(ExitCodes::NotAvailable, ErrorCode::NotAvailable, message)
     }
@@ -132,6 +137,7 @@ impl NactlError {
         Self::new(ExitCodes::GeneralError, ErrorCode::CommandFailed, message)
     }
 
+    #[allow(dead_code)]
     pub fn parse_error(message: impl Into<String>) -> Self {
         Self::new(ExitCodes::GeneralError, ErrorCode::ParseError, message)
     }
@@ -164,4 +170,5 @@ impl fmt::Display for NactlError {
 impl std::error::Error for NactlError {}
 
 /// Result type alias for nactl operations
+#[allow(dead_code)]
 pub type NactlResult<T> = Result<T, NactlError>;

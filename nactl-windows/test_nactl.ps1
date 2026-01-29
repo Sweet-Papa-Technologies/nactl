@@ -11,12 +11,32 @@ $Red = "Red"
 $Yellow = "Yellow"
 $Blue = "Cyan"
 
-# Check if binary exists
+# Check multiple locations for the binary
 if (-not (Test-Path $NactlPath)) {
-    Write-Host "Error: nactl binary not found at $NactlPath" -ForegroundColor $Red
-    Write-Host "Build first with: cargo build"
-    Write-Host "Or specify path: .\test_nactl.ps1 -NactlPath 'path\to\nactl.exe'"
-    exit 1
+    # Try release build
+    if (Test-Path ".\target\release\nactl.exe") {
+        $NactlPath = ".\target\release\nactl.exe"
+    }
+    # Try x86_64 debug
+    elseif (Test-Path ".\target\x86_64-pc-windows-msvc\debug\nactl.exe") {
+        $NactlPath = ".\target\x86_64-pc-windows-msvc\debug\nactl.exe"
+    }
+    # Try x86_64 release
+    elseif (Test-Path ".\target\x86_64-pc-windows-msvc\release\nactl.exe") {
+        $NactlPath = ".\target\x86_64-pc-windows-msvc\release\nactl.exe"
+    }
+    else {
+        Write-Host "Error: nactl binary not found" -ForegroundColor $Red
+        Write-Host "Checked locations:"
+        Write-Host "  - .\target\debug\nactl.exe"
+        Write-Host "  - .\target\release\nactl.exe"
+        Write-Host "  - .\target\x86_64-pc-windows-msvc\debug\nactl.exe"
+        Write-Host "  - .\target\x86_64-pc-windows-msvc\release\nactl.exe"
+        Write-Host ""
+        Write-Host "Build first with: cargo build"
+        Write-Host "Or specify path: .\test_nactl.ps1 -NactlPath 'path\to\nactl.exe'"
+        exit 1
+    }
 }
 
 Write-Host "========================================" -ForegroundColor $Blue
@@ -33,14 +53,16 @@ $script:Failed = 0
 function Run-Test {
     param(
         [string]$Name,
-        [string]$Args
+        [string]$CmdArgs  # Renamed from $Args to avoid conflict with automatic variable
     )
 
     Write-Host "Test: $Name" -ForegroundColor $Yellow
-    Write-Host "  Command: $NactlPath $Args"
+    Write-Host "  Command: $NactlPath $CmdArgs"
 
     try {
-        $output = & $NactlPath $Args.Split(" ") 2>&1
+        # Split args and filter out empty strings
+        $argArray = $CmdArgs.Split(" ") | Where-Object { $_ -ne "" }
+        $output = & $NactlPath @argArray 2>&1
         $exitCode = $LASTEXITCODE
 
         if ($exitCode -eq 0) {
@@ -60,15 +82,16 @@ function Run-Test {
 function Run-TestWithOutput {
     param(
         [string]$Name,
-        [string]$Args
+        [string]$CmdArgs
     )
 
     Write-Host "Test: $Name" -ForegroundColor $Yellow
-    Write-Host "  Command: $NactlPath $Args"
+    Write-Host "  Command: $NactlPath $CmdArgs"
     Write-Host "  Output:"
 
     try {
-        $output = & $NactlPath $Args.Split(" ") 2>&1
+        $argArray = $CmdArgs.Split(" ") | Where-Object { $_ -ne "" }
+        $output = & $NactlPath @argArray 2>&1
         $exitCode = $LASTEXITCODE
 
         $output | ForEach-Object { Write-Host "    $_" }
@@ -90,13 +113,13 @@ function Run-TestWithOutput {
 function Echo-ManualTest {
     param(
         [string]$Name,
-        [string]$Args,
+        [string]$CmdArgs,
         [string]$Note
     )
 
     Write-Host "Manual Test: $Name" -ForegroundColor $Yellow
     Write-Host "  NOTE: $Note" -ForegroundColor $Red
-    Write-Host "  Command to run (as Admin): $NactlPath $Args" -ForegroundColor $Green
+    Write-Host "  Command to run (as Admin): $NactlPath $CmdArgs" -ForegroundColor $Green
     Write-Host ""
 }
 
@@ -152,7 +175,7 @@ Write-Host ""
 Echo-ManualTest "DNS Flush" "dns flush" "Clears DNS cache - safe but better with admin"
 Echo-ManualTest "DNS Set Custom" "dns set 1.1.1.1 1.0.0.1" "Changes DNS servers - will affect name resolution"
 Echo-ManualTest "DNS Reset" "dns reset" "Resets DNS to DHCP - run after DNS Set test"
-Echo-ManualTest "Wi-Fi Forget" "wifi forget 'TestNetwork'" "Removes saved network - replace 'TestNetwork' with actual SSID"
+Echo-ManualTest "Wi-Fi Forget" "wifi forget TestNetwork" "Removes saved network - replace TestNetwork with actual SSID"
 Echo-ManualTest "Stack Reset (Soft)" "stack reset --level soft" "Restarts network adapter - temporary connectivity loss"
 Echo-ManualTest "Stack Reset (Hard)" "stack reset --level hard" "Resets TCP/IP and Winsock - REQUIRES REBOOT"
 Echo-ManualTest "Proxy Clear" "proxy clear" "Clears all proxy settings - only if proxies are configured"

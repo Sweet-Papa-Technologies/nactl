@@ -47,7 +47,7 @@ struct ShellExecutor {
                 return CommandResult(
                     output: "",
                     errorOutput: "Command timed out",
-                    exitCode: -1
+                    exitCode: Int32(NactlExitCode.timeout.rawValue)
                 )
             }
 
@@ -74,67 +74,6 @@ struct ShellExecutor {
     /// Execute a command using /bin/sh
     static func shell(_ command: String, timeout: TimeInterval = 30) -> CommandResult {
         return execute("/bin/sh", arguments: ["-c", command], timeout: timeout)
-    }
-
-    /// Execute a command and stream output line by line
-    /// - Parameters:
-    ///   - command: The command to execute
-    ///   - arguments: Arguments for the command
-    ///   - timeout: Timeout in seconds
-    ///   - onLine: Callback for each line of output
-    /// - Returns: Exit code
-    static func executeWithStreaming(
-        _ command: String,
-        arguments: [String] = [],
-        timeout: TimeInterval = 60,
-        onLine: @escaping (String) -> Void
-    ) -> Int32 {
-        let process = Process()
-        let outputPipe = Pipe()
-
-        process.executableURL = URL(fileURLWithPath: command)
-        process.arguments = arguments
-        process.standardOutput = outputPipe
-        process.standardError = outputPipe
-
-        var outputBuffer = ""
-        let outputHandle = outputPipe.fileHandleForReading
-
-        outputHandle.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.count > 0, let str = String(data: data, encoding: .utf8) {
-                outputBuffer += str
-                while let range = outputBuffer.range(of: "\n") {
-                    let line = String(outputBuffer[..<range.lowerBound])
-                    onLine(line)
-                    outputBuffer = String(outputBuffer[range.upperBound...])
-                }
-            }
-        }
-
-        do {
-            try process.run()
-
-            let deadline = Date().addingTimeInterval(timeout)
-            while process.isRunning && Date() < deadline {
-                Thread.sleep(forTimeInterval: 0.1)
-            }
-
-            if process.isRunning {
-                process.terminate()
-                return -1
-            }
-
-            // Process any remaining buffer
-            if !outputBuffer.isEmpty {
-                onLine(outputBuffer)
-            }
-
-            outputHandle.readabilityHandler = nil
-            return process.terminationStatus
-        } catch {
-            return -1
-        }
     }
 }
 
@@ -167,11 +106,5 @@ extension String {
         // IPv6 (simplified check)
         let ipv6Regex = "^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$"
         return self.range(of: ipv6Regex, options: .regularExpression) != nil
-    }
-
-    /// Shell-escaped version of the string
-    var shellEscaped: String {
-        // Escape single quotes by ending the single-quoted string, adding an escaped single quote, and starting a new single-quoted string
-        return "'" + self.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }

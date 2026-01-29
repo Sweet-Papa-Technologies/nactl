@@ -43,6 +43,7 @@ pub fn run_command(args: &[&str]) -> Result<String, NactlError> {
 }
 
 /// Run a netsh command and check if it succeeds
+#[allow(dead_code)]
 pub fn run_command_status(args: &[&str]) -> bool {
     Command::new("netsh")
         .args(args)

@@ -5,6 +5,7 @@ use crate::utils::admin;
 use crate::utils::netsh;
 use crate::utils::output::{print_output, OutputFormat};
 use crate::utils::powershell;
+use crate::utils::validation;
 use serde::Serialize;
 use std::process::Command;
 
@@ -39,15 +40,14 @@ pub fn reset(level: &str, format: OutputFormat, interface: Option<&str>) -> Resu
     }
 
     let mut actions: Vec<String> = Vec::new();
-    let mut success = true;
 
-    if level == "soft" {
+    let success = if level == "soft" {
         // Soft reset: flush caches, release/renew IP, restart adapter
-        success = perform_soft_reset(&mut actions, interface);
+        perform_soft_reset(&mut actions, interface)
     } else {
         // Hard reset: Winsock and TCP/IP reset
-        success = perform_hard_reset(&mut actions);
-    }
+        perform_hard_reset(&mut actions)
+    };
 
     let response = StackResetResponse {
         success,
@@ -155,10 +155,12 @@ fn perform_hard_reset(actions: &mut Vec<String>) -> bool {
 fn restart_network_adapter(adapter_name: &str) -> bool {
     // Use PowerShell to restart the adapter
     // Restart-NetAdapter -Name "Wi-Fi" -Confirm:$false
+    // Sanitize the adapter name to prevent command injection
+    let sanitized_name = validation::sanitize_for_command(adapter_name);
     let script = format!(
-        "Restart-NetAdapter -Name '{}' -Confirm:$false",
-        adapter_name.replace('\'', "''")
+        "Restart-NetAdapter -Name \"{}\" -Confirm:$false",
+        sanitized_name
     );
 
-    powershell::run_script(&script).is_ok()
+    powershell::run_script_status(&script)
 }

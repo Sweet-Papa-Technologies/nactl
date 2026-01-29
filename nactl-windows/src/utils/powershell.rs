@@ -58,6 +58,7 @@ pub fn run_script_status(script: &str) -> bool {
 }
 
 /// Get PowerShell to return JSON output
+#[allow(dead_code)]
 pub fn run_script_json(script: &str) -> Result<String, NactlError> {
     let json_script = format!("{} | ConvertTo-Json -Compress", script);
     run_script(&json_script)

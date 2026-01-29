@@ -173,7 +173,6 @@ fn notify_internet_settings_change() {
     // Alternative: broadcast WM_SETTINGCHANGE
     #[allow(non_snake_case)]
     unsafe {
-        use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::{
             SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
         };

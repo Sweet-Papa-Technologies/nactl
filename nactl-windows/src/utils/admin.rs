@@ -5,7 +5,6 @@ pub fn is_elevated() -> bool {
     #[cfg(windows)]
     {
         use std::mem;
-        use std::ptr;
         use windows::Win32::Foundation::{CloseHandle, HANDLE};
         use windows::Win32::Security::{
             GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
@@ -45,6 +44,7 @@ pub fn is_elevated() -> bool {
 }
 
 /// Get a message suggesting how to run as administrator
+#[allow(dead_code)]
 pub fn elevation_suggestion() -> &'static str {
     "Run this command from an elevated Command Prompt or PowerShell (Run as Administrator)"
 }

@@ -204,8 +204,8 @@ fn main() -> ExitCode {
     match result {
         Ok(code) => ExitCode::from(code),
         Err(e) => {
-            eprintln!("{}", e);
-            ExitCode::from(ExitCodes::GeneralError as u8)
+            utils::output::print_error(&e);
+            ExitCode::from(e.exit_code as u8)
         }
     }
 }

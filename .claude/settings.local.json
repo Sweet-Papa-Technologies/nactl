@@ -5,7 +5,10 @@
       "Bash(.build/debug/nactl status:*)",
       "Bash(.build/debug/nactl wifi scan:*)",
       "Bash(swift package:*)",
-      "Bash(cargo fmt:*)"
+      "Bash(cargo fmt:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(tree:*)"
     ]
   }
 }

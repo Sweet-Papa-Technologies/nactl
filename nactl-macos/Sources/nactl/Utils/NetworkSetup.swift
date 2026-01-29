@@ -53,20 +53,6 @@ struct NetworkSetup {
         return nil
     }
 
-    /// Get all network services
-    static func listNetworkServices() -> [String] {
-        let result = ShellExecutor.execute(
-            "/usr/sbin/networksetup",
-            arguments: ["-listallnetworkservices"]
-        )
-
-        guard result.succeeded else { return [] }
-
-        return result.output
-            .components(separatedBy: "\n")
-            .filter { !$0.isEmpty && !$0.hasPrefix("*") && !$0.hasPrefix("An asterisk") }
-    }
-
     /// Get network info for a service
     static func getNetworkInfo(service: String) -> [String: String] {
         let result = ShellExecutor.execute(
@@ -162,31 +148,5 @@ struct NetworkSetup {
     /// Check if running as root
     static var isRoot: Bool {
         return getuid() == 0
-    }
-
-    /// Get the active connection type
-    static func getConnectionType() -> String? {
-        // Check Wi-Fi first
-        let wifiResult = ShellExecutor.execute(
-            "/usr/sbin/networksetup",
-            arguments: ["-getairportnetwork", getWiFiInterfaceName() ?? "en0"]
-        )
-
-        if wifiResult.succeeded && !wifiResult.output.contains("not associated") {
-            return "wifi"
-        }
-
-        // Check for active Ethernet
-        let primaryInterface = getPrimaryInterface()
-        if let iface = primaryInterface {
-            if iface.hasPrefix("en") && iface != getWiFiInterfaceName() {
-                return "ethernet"
-            }
-            if iface.hasPrefix("utun") || iface.hasPrefix("ppp") {
-                return "vpn"
-            }
-        }
-
-        return nil
     }
 }

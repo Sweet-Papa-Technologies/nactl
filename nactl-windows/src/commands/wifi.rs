@@ -89,7 +89,14 @@ pub fn forget(ssid: &str, format: OutputFormat) -> Result<u8, NactlError> {
 
     // Delete the profile
     // netsh wlan delete profile name="NetworkName"
-    let result = netsh::run_command(&["wlan", "delete", "profile", &format!("name={}", ssid)]);
+    // Sanitize the SSID for safe use in command arguments
+    let sanitized_ssid = validation::sanitize_for_command(ssid);
+    let result = netsh::run_command(&[
+        "wlan",
+        "delete",
+        "profile",
+        &format!("name=\"{}\"", sanitized_ssid),
+    ]);
 
     match result {
         Ok(output) => {
