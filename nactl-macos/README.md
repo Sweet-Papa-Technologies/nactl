@@ -10,7 +10,6 @@ A native Swift CLI tool for network diagnostics, Wi-Fi management, and network s
 
 - macOS 12 (Monterey) or later
 - Xcode Command Line Tools
-- Location Services permission (for Wi-Fi scanning)
 
 ## Building
 
@@ -44,17 +43,14 @@ sudo cp .build/apple/Products/Release/nactl /usr/local/bin/
 ## Commands
 
 ### Permissions
-Check and manage required permissions (Location Services for Wi-Fi scanning):
+Check Location Services permission status (informational):
 ```bash
 # Check current permission status
 nactl permissions
 nactl permissions --json
-
-# Check and open System Settings to fix permissions
-nactl permissions --fix
 ```
 
-**Important:** For CLI tools on macOS, Location Services permission is granted to your **terminal app** (Terminal, iTerm, etc.), not to nactl itself. The `permissions` command will tell you which app needs the permission.
+**Note:** CLI tools cannot obtain Location Services permission on macOS—they don't appear in System Preferences > Location Services. This command reports the current status for diagnostic purposes. nactl uses fallback methods when Location Services is unavailable.
 
 ### Status
 Get comprehensive network connection status:
@@ -107,13 +103,16 @@ sudo nactl stack reset --level hard
 ### Wi-Fi
 Wi-Fi management commands:
 ```bash
-# Scan for networks (requires Location Services permission)
+# Scan for networks
+# Note: Returns empty results in limited mode (Location Services unavailable)
 nactl wifi scan
 nactl wifi scan --json
 
 # Forget a saved network (requires sudo)
 sudo nactl wifi forget "NetworkName"
 ```
+
+**Limited Mode:** WiFi network scanning requires Location Services, which CLI tools cannot obtain on macOS. When unavailable, `wifi scan` returns a successful response with `scan_available: false` and an empty networks array. Use `nactl status` to get current connection info via fallback methods.
 
 ### Proxy
 Proxy management commands:
@@ -147,7 +146,7 @@ sudo nactl proxy clear
 | 4 | Network interface not found |
 | 5 | Operation timed out |
 | 6 | Feature not available |
-| 7 | Location Services denied (Wi-Fi scan) |
+| 7 | Location Services denied (reserved, rarely used—commands degrade gracefully) |
 
 ## JSON Output
 
@@ -173,30 +172,45 @@ All commands support JSON output for integration with other tools. JSON is autom
 }
 ```
 
-## Location Services
+## Location Services & Limited Mode
 
-Wi-Fi scanning requires Location Services permission. **Important:** On macOS, this permission is granted to your **terminal application** (Terminal, iTerm, VS Code, etc.), not to nactl itself.
+Some Wi-Fi operations require Location Services permission on macOS. However, **CLI tools and daemons cannot obtain this permission**—they don't appear in System Preferences > Location Services. This is an intentional Apple privacy restriction.
+
+### Graceful Degradation
+
+nactl handles this gracefully by using fallback methods:
+
+| Operation | With Location Services | Without (Limited Mode) |
+|-----------|----------------------|------------------------|
+| Current SSID | CoreWLAN | `system_profiler` fallback |
+| WiFi scan | Full network list | Empty array, `scan_available: false` |
+| BSSID | Available | `null` |
+| Signal strength (RSSI) | Available | `null` |
+| WiFi power on/off | Works | Works |
+| IP/gateway/DNS | Works | Works |
+
+### Response Structure in Limited Mode
+
+When Location Services is unavailable, responses include:
+```json
+{
+  "success": true,
+  "data": {
+    "limited_mode": true,
+    "limited_reason": "Location Services not available for CLI tools",
+    "scan_available": false,
+    ...
+  }
+}
+```
 
 ### Checking Permission Status
 ```bash
-# Check if Location Services is properly configured
+# Check current status (informational only)
 nactl permissions
-
-# If permission is missing, open System Settings automatically
-nactl permissions --fix
 ```
 
-### Granting Permission Manually
-1. Open **System Settings > Privacy & Security > Location Services**
-2. Find your terminal app (e.g., "Terminal", "iTerm", "Visual Studio Code")
-3. Enable Location Services for that app
-4. Run `nactl wifi scan` again
-
-### Why Location Services?
-Apple requires Location Services permission for Wi-Fi scanning because:
-- Wi-Fi network information can be used to determine physical location
-- This is a privacy protection built into macOS
-- Without permission, network names (SSIDs) will appear as `<Hidden>`
+This reports the current Location Services status for diagnostic purposes. No user action is required or possible—nactl will use fallback methods automatically.
 
 ## Code Signing & Notarization
 
