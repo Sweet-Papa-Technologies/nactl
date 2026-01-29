@@ -92,14 +92,14 @@ jobs:
       continue-on-error: true  # Some tests may fail in CI
 
     - name: Upload debug binary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: nactl-windows-debug
         path: nactl-windows/target/debug/nactl.exe
         retention-days: 7
 
     - name: Upload release binary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: nactl-windows-release
         path: nactl-windows/target/release/nactl.exe
