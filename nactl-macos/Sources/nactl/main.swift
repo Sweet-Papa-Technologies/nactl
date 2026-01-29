@@ -13,6 +13,7 @@ struct Nactl: ParsableCommand {
         version: APP_VERSION,
         subcommands: [
             VersionCommand.self,
+            PermissionsCommand.self,
             StatusCommand.self,
             PingCommand.self,
             TraceCommand.self,

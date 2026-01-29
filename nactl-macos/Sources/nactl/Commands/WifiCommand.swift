@@ -3,48 +3,6 @@ import Foundation
 import CoreWLAN
 import CoreLocation
 
-// MARK: - Location Services Helper
-
-/// Helper class to handle Location Services authorization for CLI apps
-class LocationAuthHelper: NSObject, CLLocationManagerDelegate {
-    private let locationManager = CLLocationManager()
-    private var authorizationCallback: ((CLAuthorizationStatus) -> Void)?
-    private let semaphore = DispatchSemaphore(value: 0)
-    private var resultStatus: CLAuthorizationStatus = .notDetermined
-
-    override init() {
-        super.init()
-        locationManager.delegate = self
-    }
-
-    /// Check and request Location Services authorization
-    /// Returns the current authorization status after attempting to request if needed
-    func checkAndRequestAuthorization() -> CLAuthorizationStatus {
-        let currentStatus = locationManager.authorizationStatus
-
-        // If already determined, return current status
-        if currentStatus != .notDetermined {
-            return currentStatus
-        }
-
-        // Request authorization - this will trigger system prompt
-        // Note: For CLI apps, the prompt may appear but won't block
-        locationManager.requestWhenInUseAuthorization()
-
-        // Wait briefly for the authorization to be determined
-        // The system dialog is asynchronous
-        let deadline = DispatchTime.now() + .seconds(1)
-        _ = semaphore.wait(timeout: deadline)
-
-        // Check status again
-        return locationManager.authorizationStatus
-    }
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        resultStatus = manager.authorizationStatus
-        semaphore.signal()
-    }
-}
 
 /// nactl wifi - Wi-Fi management commands
 struct WifiCommand: ParsableCommand {
@@ -66,32 +24,40 @@ struct WifiCommand: ParsableCommand {
         mutating func run() throws {
             let startTime = Date()
 
-            // Check if Location Services are enabled system-wide
+            // Check Location Services permission
+            // Note: For CLI apps, permission is tied to the TERMINAL APP, not this binary
+            let terminalApp = ProcessInfo.processInfo.environment["TERM_PROGRAM"] ?? "Terminal"
+
+            // Check if Location Services is enabled system-wide
             if !CLLocationManager.locationServicesEnabled() {
                 exitWithError(
                     .locationServicesDenied,
-                    message: "Location Services are disabled system-wide. Enable in System Settings > Privacy & Security > Location Services",
+                    message: "Location Services disabled system-wide. Run 'nactl permissions --fix' to open System Settings",
                     json: globalOptions.shouldOutputJSON,
                     pretty: globalOptions.pretty
                 )
             }
 
-            // Check and request Location Services authorization
-            let authHelper = LocationAuthHelper()
-            let authStatus = authHelper.checkAndRequestAuthorization()
+            // Check authorization status
+            let manager = CLLocationManager()
+            let authStatus = manager.authorizationStatus
 
             switch authStatus {
             case .denied, .restricted:
                 exitWithError(
                     .locationServicesDenied,
-                    message: "Location Services permission denied. Grant permission in System Settings > Privacy & Security > Location Services > Terminal (or your terminal app)",
+                    message: "Location Services permission denied. Run 'nactl permissions --fix' to open System Settings and enable for \(terminalApp)",
                     json: globalOptions.shouldOutputJSON,
                     pretty: globalOptions.pretty
                 )
             case .notDetermined:
-                // Still not determined - the user hasn't responded to the prompt yet
-                // Try to proceed anyway, the scan might trigger the prompt
-                break
+                // Permission not yet granted - inform user how to fix
+                exitWithError(
+                    .locationServicesDenied,
+                    message: "Location Services permission required. Run 'nactl permissions --fix' to open System Settings and enable for \(terminalApp)",
+                    json: globalOptions.shouldOutputJSON,
+                    pretty: globalOptions.pretty
+                )
             case .authorizedAlways, .authorizedWhenInUse, .authorized:
                 break // Good to go
             @unknown default:
@@ -226,24 +192,23 @@ struct WifiCommand: ParsableCommand {
             print("Scan time: \(data.scanTimeMs)ms")
             print("")
 
-            // Table header
-            print(String(format: "%-32s  %-17s  %6s  %4s  %8s  %-15s  %s",
-                "SSID", "BSSID", "Signal", "Ch", "Freq", "Security", "Known"))
+            // Table header - use padding functions instead of %s format specifiers
+            // which crash with Swift Strings
+            print("\("SSID".padding(toLength: 32, withPad: " ", startingAt: 0))  \("BSSID".padding(toLength: 17, withPad: " ", startingAt: 0))  Signal   Ch      Freq  Security         Known")
             print(String(repeating: "-", count: 100))
 
             for network in data.networks {
                 let ssidDisplay = network.ssid.count > 30 ? String(network.ssid.prefix(30)) + ".." : network.ssid
                 let knownDisplay = network.known ? "Yes" : ""
 
-                print(String(format: "%-32s  %-17s  %5d%%  %4d  %8s  %-15s  %s",
-                    ssidDisplay,
-                    network.bssid,
-                    network.signalStrength,
-                    network.channel,
-                    network.frequency,
-                    network.security,
-                    knownDisplay
-                ))
+                let ssidPadded = ssidDisplay.padding(toLength: 32, withPad: " ", startingAt: 0)
+                let bssidPadded = network.bssid.padding(toLength: 17, withPad: " ", startingAt: 0)
+                let signalStr = "\(network.signalStrength)%".padding(toLength: 6, withPad: " ", startingAt: 0)
+                let channelStr = "\(network.channel)".padding(toLength: 4, withPad: " ", startingAt: 0)
+                let freqPadded = network.frequency.padding(toLength: 8, withPad: " ", startingAt: 0)
+                let securityPadded = network.security.padding(toLength: 15, withPad: " ", startingAt: 0)
+
+                print("\(ssidPadded)  \(bssidPadded)  \(signalStr)  \(channelStr)  \(freqPadded)  \(securityPadded)  \(knownDisplay)")
             }
         }
     }

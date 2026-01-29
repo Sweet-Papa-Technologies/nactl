@@ -43,6 +43,19 @@ sudo cp .build/apple/Products/Release/nactl /usr/local/bin/
 
 ## Commands
 
+### Permissions
+Check and manage required permissions (Location Services for Wi-Fi scanning):
+```bash
+# Check current permission status
+nactl permissions
+nactl permissions --json
+
+# Check and open System Settings to fix permissions
+nactl permissions --fix
+```
+
+**Important:** For CLI tools on macOS, Location Services permission is granted to your **terminal app** (Terminal, iTerm, etc.), not to nactl itself. The `permissions` command will tell you which app needs the permission.
+
 ### Status
 Get comprehensive network connection status:
 ```bash
@@ -162,15 +175,28 @@ All commands support JSON output for integration with other tools. JSON is autom
 
 ## Location Services
 
-Wi-Fi scanning requires Location Services permission. On first run, macOS will prompt:
-> "nactl would like to use your current location"
+Wi-Fi scanning requires Location Services permission. **Important:** On macOS, this permission is granted to your **terminal application** (Terminal, iTerm, VS Code, etc.), not to nactl itself.
 
-Click "Allow" to enable Wi-Fi scanning. If denied, the `wifi scan` command will return exit code 7.
+### Checking Permission Status
+```bash
+# Check if Location Services is properly configured
+nactl permissions
 
-To grant permission after initial denial:
-1. Open System Preferences > Security & Privacy > Privacy
-2. Select "Location Services" in the sidebar
-3. Find "nactl" or your terminal app and enable it
+# If permission is missing, open System Settings automatically
+nactl permissions --fix
+```
+
+### Granting Permission Manually
+1. Open **System Settings > Privacy & Security > Location Services**
+2. Find your terminal app (e.g., "Terminal", "iTerm", "Visual Studio Code")
+3. Enable Location Services for that app
+4. Run `nactl wifi scan` again
+
+### Why Location Services?
+Apple requires Location Services permission for Wi-Fi scanning because:
+- Wi-Fi network information can be used to determine physical location
+- This is a privacy protection built into macOS
+- Without permission, network names (SSIDs) will appear as `<Hidden>`
 
 ## Code Signing & Notarization
 

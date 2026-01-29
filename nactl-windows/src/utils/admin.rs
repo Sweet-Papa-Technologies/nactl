@@ -4,36 +4,40 @@
 pub fn is_elevated() -> bool {
     #[cfg(windows)]
     {
-        use std::mem;
-        use windows::Win32::Foundation::{CloseHandle, HANDLE};
-        use windows::Win32::Security::{
-            GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
-        };
-        use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+        // Wrap in catch_unwind to prevent panics from crashing the app
+        std::panic::catch_unwind(|| {
+            use std::mem;
+            use windows::Win32::Foundation::{CloseHandle, HANDLE};
+            use windows::Win32::Security::{
+                GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
+            };
+            use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
-        unsafe {
-            let mut token_handle = HANDLE::default();
-            let process = GetCurrentProcess();
+            unsafe {
+                let mut token_handle = HANDLE::default();
+                let process = GetCurrentProcess();
 
-            if OpenProcessToken(process, TOKEN_QUERY, &mut token_handle).is_err() {
-                return false;
+                if OpenProcessToken(process, TOKEN_QUERY, &mut token_handle).is_err() {
+                    return false;
+                }
+
+                let mut elevation = TOKEN_ELEVATION::default();
+                let mut size = mem::size_of::<TOKEN_ELEVATION>() as u32;
+
+                let result = GetTokenInformation(
+                    token_handle,
+                    TokenElevation,
+                    Some(&mut elevation as *mut _ as *mut _),
+                    size,
+                    &mut size,
+                );
+
+                let _ = CloseHandle(token_handle);
+
+                result.is_ok() && elevation.TokenIsElevated != 0
             }
-
-            let mut elevation = TOKEN_ELEVATION::default();
-            let mut size = mem::size_of::<TOKEN_ELEVATION>() as u32;
-
-            let result = GetTokenInformation(
-                token_handle,
-                TokenElevation,
-                Some(&mut elevation as *mut _ as *mut _),
-                size,
-                &mut size,
-            );
-
-            let _ = CloseHandle(token_handle);
-
-            result.is_ok() && elevation.TokenIsElevated != 0
-        }
+        })
+        .unwrap_or(false)
     }
 
     #[cfg(not(windows))]
