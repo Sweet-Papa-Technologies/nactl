@@ -74,14 +74,14 @@ jobs:
       run: .build/apple/Products/Debug/nactl ping 127.0.0.1 --count 2 --json
 
     - name: Upload debug binary (Universal)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: nactl-macos-debug-universal
         path: nactl-macos/.build/apple/Products/Debug/nactl
         retention-days: 7
 
     - name: Upload release binary (Universal)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: nactl-macos-release-universal
         path: nactl-macos/.build/apple/Products/Release/nactl

@@ -51,7 +51,7 @@ jobs:
         tar -czvf nactl-macos-universal.tar.gz -C dist .
 
     - name: Upload macOS Universal artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: nactl-macos-universal
         path: |
@@ -85,7 +85,7 @@ jobs:
       shell: pwsh
 
     - name: Upload Windows artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: nactl-windows-x64
         path: nactl-windows/nactl-windows-x64.zip
