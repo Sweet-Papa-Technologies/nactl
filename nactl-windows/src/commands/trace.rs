@@ -31,14 +31,19 @@ struct TraceResponse {
     data: TraceData,
 }
 
-pub fn execute(host: &str, max_hops: u32, timeout: u32, format: OutputFormat) -> Result<u8, NactlError> {
+pub fn execute(
+    host: &str,
+    max_hops: u32,
+    timeout: u32,
+    format: OutputFormat,
+) -> Result<u8, NactlError> {
     // Validate input to prevent command injection
     validation::validate_hostname(host)?;
 
     // Calculate per-hop timeout from overall timeout
     // tracert -w is timeout per probe in milliseconds
     let per_hop_timeout = if timeout == 0 {
-        5000  // 5 seconds per hop if no overall timeout specified
+        5000 // 5 seconds per hop if no overall timeout specified
     } else {
         // Divide overall timeout by (max_hops * 3 probes per hop), min 500ms
         std::cmp::max(500, timeout / (max_hops * 3))
@@ -48,8 +53,10 @@ pub fn execute(host: &str, max_hops: u32, timeout: u32, format: OutputFormat) ->
     // Windows tracert: -h max_hops, -w timeout_per_probe
     let output = Command::new("tracert")
         .args([
-            "-h", &max_hops.to_string(),
-            "-w", &per_hop_timeout.to_string(),
+            "-h",
+            &max_hops.to_string(),
+            "-w",
+            &per_hop_timeout.to_string(),
             host,
         ])
         .output()

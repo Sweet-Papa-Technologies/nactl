@@ -205,7 +205,9 @@ fn parse_wifi_networks(
                     signal_rssi: signal_to_rssi(signal),
                     channel,
                     frequency: channel_to_frequency(channel),
-                    security: current_security.clone().unwrap_or_else(|| "Unknown".to_string()),
+                    security: current_security
+                        .clone()
+                        .unwrap_or_else(|| "Unknown".to_string()),
                     known: known_networks.contains(ssid),
                 });
             }
@@ -236,7 +238,9 @@ fn parse_wifi_networks(
                     signal_rssi: signal_to_rssi(signal),
                     channel,
                     frequency: channel_to_frequency(channel),
-                    security: current_security.clone().unwrap_or_else(|| "Unknown".to_string()),
+                    security: current_security
+                        .clone()
+                        .unwrap_or_else(|| "Unknown".to_string()),
                     known: known_networks.contains(ssid),
                 });
             }
@@ -273,7 +277,9 @@ fn parse_wifi_networks(
             signal_rssi: signal_to_rssi(signal),
             channel,
             frequency: channel_to_frequency(channel),
-            security: current_security.clone().unwrap_or_else(|| "Unknown".to_string()),
+            security: current_security
+                .clone()
+                .unwrap_or_else(|| "Unknown".to_string()),
             known: known_networks.contains(ssid),
         });
     }

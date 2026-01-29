@@ -129,11 +129,7 @@ impl NactlError {
     }
 
     pub fn command_failed(message: impl Into<String>) -> Self {
-        Self::new(
-            ExitCodes::GeneralError,
-            ErrorCode::CommandFailed,
-            message,
-        )
+        Self::new(ExitCodes::GeneralError, ErrorCode::CommandFailed, message)
     }
 
     pub fn parse_error(message: impl Into<String>) -> Self {
@@ -156,7 +152,11 @@ impl fmt::Display for NactlError {
             "error": self.response
         })) {
             Ok(json) => write!(f, "{}", json),
-            Err(_) => write!(f, "{{\"success\":false,\"error\":{{\"message\":\"{}\"}}}}", self.response.message),
+            Err(_) => write!(
+                f,
+                "{{\"success\":false,\"error\":{{\"message\":\"{}\"}}}}",
+                self.response.message
+            ),
         }
     }
 }

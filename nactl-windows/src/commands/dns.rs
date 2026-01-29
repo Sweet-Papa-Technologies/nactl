@@ -1,9 +1,9 @@
 //! DNS management command implementations
 
 use crate::errors::{ExitCodes, NactlError};
+use crate::utils::admin;
 use crate::utils::netsh;
 use crate::utils::output::{print_output, OutputFormat};
-use crate::utils::admin;
 use crate::utils::validation;
 use serde::Serialize;
 use std::process::Command;
@@ -93,12 +93,7 @@ pub fn set(
 
     // Set primary DNS
     // netsh interface ip set dns "Wi-Fi" static 1.1.1.1
-    let result = netsh::run_command(&[
-        "interface", "ip", "set", "dns",
-        iface,
-        "static",
-        primary,
-    ]);
+    let result = netsh::run_command(&["interface", "ip", "set", "dns", iface, "static", primary]);
 
     if let Err(e) = result {
         // Check if interface not found
@@ -112,12 +107,7 @@ pub fn set(
     // Set secondary DNS if provided
     if let Some(sec) = secondary {
         // netsh interface ip add dns "Wi-Fi" 1.0.0.1 index=2
-        let _ = netsh::run_command(&[
-            "interface", "ip", "add", "dns",
-            iface,
-            sec,
-            "index=2",
-        ]);
+        let _ = netsh::run_command(&["interface", "ip", "add", "dns", iface, sec, "index=2"]);
     }
 
     let response = SetDnsResponse {

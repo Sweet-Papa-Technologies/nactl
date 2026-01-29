@@ -7,8 +7,7 @@ use winreg::enums::*;
 #[cfg(windows)]
 use winreg::RegKey;
 
-const INTERNET_SETTINGS_PATH: &str =
-    r"Software\Microsoft\Windows\CurrentVersion\Internet Settings";
+const INTERNET_SETTINGS_PATH: &str = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings";
 
 /// Get proxy enabled status from registry
 pub fn get_proxy_enabled() -> Result<bool, NactlError> {

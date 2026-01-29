@@ -2,7 +2,7 @@
 
 use crate::errors::{ExitCodes, NactlError};
 use crate::utils::netsh;
-use crate::utils::output::{OutputFormat, print_output};
+use crate::utils::output::{print_output, OutputFormat};
 use regex::Regex;
 use serde::Serialize;
 use std::process::Command;

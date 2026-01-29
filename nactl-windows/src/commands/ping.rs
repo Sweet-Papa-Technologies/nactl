@@ -33,18 +33,19 @@ struct PingResponse {
     data: PingData,
 }
 
-pub fn execute(host: &str, count: u32, timeout: u32, format: OutputFormat) -> Result<u8, NactlError> {
+pub fn execute(
+    host: &str,
+    count: u32,
+    timeout: u32,
+    format: OutputFormat,
+) -> Result<u8, NactlError> {
     // Validate input to prevent command injection
     validation::validate_hostname(host)?;
 
     // Run ping command
     // Windows ping: -n count, -w timeout (in milliseconds)
     let output = Command::new("ping")
-        .args([
-            "-n", &count.to_string(),
-            "-w", &timeout.to_string(),
-            host,
-        ])
+        .args(["-n", &count.to_string(), "-w", &timeout.to_string(), host])
         .output()
         .map_err(|e| NactlError::command_failed(format!("Failed to run ping: {}", e)))?;
 
@@ -86,9 +87,8 @@ fn parse_ping_output(output: &str, host: &str, count: u32) -> Result<PingData, N
 
     // Pattern for individual ping replies
     // "Reply from 142.250.80.46: bytes=32 time=12ms TTL=117"
-    let reply_pattern = Regex::new(
-        r"Reply from (\d+\.\d+\.\d+\.\d+):.*?(?:time[<=](\d+)ms)?.*?TTL=(\d+)"
-    ).unwrap();
+    let reply_pattern =
+        Regex::new(r"Reply from (\d+\.\d+\.\d+\.\d+):.*?(?:time[<=](\d+)ms)?.*?TTL=(\d+)").unwrap();
 
     // Pattern for timeout
     let timeout_pattern = Regex::new(r"Request timed out|Destination host unreachable").unwrap();
@@ -112,11 +112,7 @@ fn parse_ping_output(output: &str, host: &str, count: u32) -> Result<PingData, N
                 times.push(t);
             }
 
-            data.results.push(PingResult {
-                seq,
-                ttl,
-                time_ms,
-            });
+            data.results.push(PingResult { seq, ttl, time_ms });
             data.packets_received += 1;
         } else if timeout_pattern.is_match(line) {
             seq += 1;
@@ -143,9 +139,9 @@ fn parse_ping_output(output: &str, host: &str, count: u32) -> Result<PingData, N
 
     // Parse statistics line as fallback
     // "Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"
-    let stats_pattern = Regex::new(
-        r"Sent\s*=\s*(\d+),\s*Received\s*=\s*(\d+),\s*Lost\s*=\s*(\d+)\s*\((\d+)%"
-    ).unwrap();
+    let stats_pattern =
+        Regex::new(r"Sent\s*=\s*(\d+),\s*Received\s*=\s*(\d+),\s*Lost\s*=\s*(\d+)\s*\((\d+)%")
+            .unwrap();
 
     if let Some(caps) = stats_pattern.captures(output) {
         if let Ok(sent) = caps[1].parse::<u32>() {
@@ -161,9 +157,9 @@ fn parse_ping_output(output: &str, host: &str, count: u32) -> Result<PingData, N
 
     // Parse min/max/avg from statistics
     // "Minimum = 12ms, Maximum = 18ms, Average = 15ms"
-    let timing_pattern = Regex::new(
-        r"Minimum\s*=\s*(\d+)ms,\s*Maximum\s*=\s*(\d+)ms,\s*Average\s*=\s*(\d+)ms"
-    ).unwrap();
+    let timing_pattern =
+        Regex::new(r"Minimum\s*=\s*(\d+)ms,\s*Maximum\s*=\s*(\d+)ms,\s*Average\s*=\s*(\d+)ms")
+            .unwrap();
 
     if let Some(caps) = timing_pattern.captures(output) {
         if data.min_ms.is_none() {

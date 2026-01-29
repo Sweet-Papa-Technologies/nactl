@@ -172,7 +172,11 @@ fn main() -> ExitCode {
             timeout,
         } => ping::execute(&host, count, timeout, format),
 
-        Commands::Trace { host, max_hops, timeout } => trace::execute(&host, max_hops, timeout, format),
+        Commands::Trace {
+            host,
+            max_hops,
+            timeout,
+        } => trace::execute(&host, max_hops, timeout, format),
 
         Commands::Dns { action } => match action {
             DnsCommands::Flush => dns::flush(format),
@@ -216,7 +220,9 @@ mod atty {
         // On Windows, check if stdout is a console
         #[cfg(windows)]
         {
-            use windows::Win32::System::Console::{GetConsoleMode, GetStdHandle, STD_OUTPUT_HANDLE, CONSOLE_MODE};
+            use windows::Win32::System::Console::{
+                GetConsoleMode, GetStdHandle, CONSOLE_MODE, STD_OUTPUT_HANDLE,
+            };
 
             unsafe {
                 let handle = GetStdHandle(STD_OUTPUT_HANDLE);

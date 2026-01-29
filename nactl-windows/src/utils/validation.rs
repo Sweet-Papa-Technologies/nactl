@@ -23,7 +23,9 @@ pub fn validate_ssid(ssid: &str) -> Result<(), NactlError> {
     }
 
     // Check for dangerous characters that could be used for command injection
-    let dangerous_chars = ['\"', '\'', '\\', '\n', '\r', '\0', '`', '$', '|', ';', '&', '<', '>'];
+    let dangerous_chars = [
+        '\"', '\'', '\\', '\n', '\r', '\0', '`', '$', '|', ';', '&', '<', '>',
+    ];
     for c in dangerous_chars {
         if ssid.contains(c) {
             return Err(NactlError::invalid_input(format!(
@@ -52,16 +54,14 @@ pub fn validate_hostname(hostname: &str) -> Result<(), NactlError> {
     // Valid hostname pattern: alphanumeric, hyphens, dots
     // Also allow IPv4 and IPv6 addresses
     let hostname_pattern = Regex::new(
-        r"^([a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?$"
-    ).unwrap();
+        r"^([a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?$",
+    )
+    .unwrap();
 
-    let ipv4_pattern = Regex::new(
-        r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
-    ).unwrap();
+    let ipv4_pattern = Regex::new(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$").unwrap();
 
-    let ipv6_pattern = Regex::new(
-        r"^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^::1$|^::$"
-    ).unwrap();
+    let ipv6_pattern =
+        Regex::new(r"^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^::1$|^::$").unwrap();
 
     if !hostname_pattern.is_match(hostname)
         && !ipv4_pattern.is_match(hostname)
@@ -94,13 +94,13 @@ pub fn validate_ip_address(ip: &str) -> Result<(), NactlError> {
 
     // IPv4 validation
     let ipv4_pattern = Regex::new(
-        r"^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-    ).unwrap();
+        r"^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$",
+    )
+    .unwrap();
 
     // IPv6 validation (simplified)
-    let ipv6_pattern = Regex::new(
-        r"^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^::1$|^::$"
-    ).unwrap();
+    let ipv6_pattern =
+        Regex::new(r"^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^::1$|^::$").unwrap();
 
     if !ipv4_pattern.is_match(ip) && !ipv6_pattern.is_match(ip) {
         return Err(NactlError::invalid_input(format!(
