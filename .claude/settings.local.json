@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(swift build:*)",
+      "Bash(.build/debug/nactl status:*)",
+      "Bash(.build/debug/nactl wifi scan:*)"
+    ]
+  }
+}

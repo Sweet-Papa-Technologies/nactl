@@ -1,0 +1,35 @@
+[package]
+name = "nactl"
+version = "1.0.0"
+edition = "2021"
+description = "Network Admin Control CLI - Windows"
+authors = ["Sweet Papa Technologies LLC"]
+license = "MIT"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+windows = { version = "0.52", features = [
+    "Win32_NetworkManagement_WiFi",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_System_Registry",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Console",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging"
+]}
+winreg = "0.52"
+regex = "1"
+
+[target.'cfg(not(windows))'.dependencies]
+libc = "0.2"
+
+[build-dependencies]
+embed-resource = "2.4"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
