@@ -53,6 +53,8 @@ Trace route to destination:
 ```bash
 nactl trace google.com
 nactl trace 8.8.8.8 --max-hops 20
+nactl trace google.com --timeout 30000    # 30 second timeout
+nactl trace google.com --timeout 0        # No timeout
 nactl trace google.com --json
 ```
 

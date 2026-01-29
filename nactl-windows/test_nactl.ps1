@@ -124,6 +124,7 @@ Run-Test "Ping localhost" "ping 127.0.0.1 --count 1"
 # Trace command (limited hops for speed)
 Run-Test "Trace (short)" "trace google.com --max-hops 3"
 Run-Test "Trace (JSON)" "trace 8.8.8.8 --max-hops 3 --json"
+Run-Test "Trace (with timeout)" "trace google.com --max-hops 3 --timeout 15000"
 
 # Wi-Fi scan
 Run-Test "Wi-Fi Scan" "wifi scan"

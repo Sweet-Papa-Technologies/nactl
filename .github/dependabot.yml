@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+
+  # Rust/Cargo dependencies
+  - package-ecosystem: "cargo"
+    directory: "/nactl-windows"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(rust)"
+    groups:
+      rust-dependencies:
+        patterns:
+          - "*"
+
+  # Swift Package Manager dependencies
+  - package-ecosystem: "swift"
+    directory: "/nactl-macos"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(swift)"

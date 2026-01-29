@@ -105,6 +105,7 @@ run_test "Ping localhost" "ping 127.0.0.1 --count 1"
 # Trace command (limited hops for speed)
 run_test "Trace (short)" "trace google.com --max-hops 3"
 run_test "Trace (JSON)" "trace 8.8.8.8 --max-hops 3 --json"
+run_test "Trace (with timeout)" "trace google.com --max-hops 3 --timeout 15000"
 
 # Wi-Fi scan (requires Location Services)
 echo -e "${YELLOW}Test: Wi-Fi Scan${NC}"

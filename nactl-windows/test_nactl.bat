@@ -41,6 +41,7 @@ call :run_test "Ping localhost" "ping 127.0.0.1 --count 1"
 
 REM Trace command
 call :run_test "Trace (short)" "trace google.com --max-hops 3"
+call :run_test "Trace (with timeout)" "trace google.com --max-hops 3 --timeout 15000"
 
 REM Wi-Fi scan
 call :run_test "Wi-Fi Scan" "wifi scan"

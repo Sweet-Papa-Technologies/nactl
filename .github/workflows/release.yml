@@ -1,0 +1,195 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    defaults:
+      run:
+        working-directory: nactl-macos
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: '5.9'
+
+    - name: Build Release
+      run: swift build -c release -v
+
+    - name: Create distribution archive
+      run: |
+        mkdir -p dist
+        cp .build/release/nactl dist/
+        cp README.md dist/
+        cd dist
+        zip -r ../nactl-macos-x64.zip .
+        cd ..
+        # Also create tar.gz
+        tar -czvf nactl-macos-x64.tar.gz -C dist .
+
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nactl-macos-release
+        path: |
+          nactl-macos/nactl-macos-x64.zip
+          nactl-macos/nactl-macos-x64.tar.gz
+        retention-days: 90
+
+  build-macos-arm:
+    runs-on: macos-latest
+
+    defaults:
+      run:
+        working-directory: nactl-macos
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: '5.9'
+
+    - name: Build Release (ARM64)
+      run: swift build -c release --arch arm64 -v
+
+    - name: Create distribution archive
+      run: |
+        mkdir -p dist
+        cp .build/release/nactl dist/
+        cp README.md dist/
+        cd dist
+        zip -r ../nactl-macos-arm64.zip .
+        cd ..
+        tar -czvf nactl-macos-arm64.tar.gz -C dist .
+
+    - name: Upload macOS ARM artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nactl-macos-arm64-release
+        path: |
+          nactl-macos/nactl-macos-arm64.zip
+          nactl-macos/nactl-macos-arm64.tar.gz
+        retention-days: 90
+
+  build-windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: nactl-windows
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build Release
+      run: cargo build --release -v
+
+    - name: Create distribution archive
+      run: |
+        New-Item -ItemType Directory -Force -Path dist
+        Copy-Item target\release\nactl.exe dist\
+        Copy-Item README.md dist\
+        Compress-Archive -Path dist\* -DestinationPath nactl-windows-x64.zip
+      shell: pwsh
+
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nactl-windows-release
+        path: nactl-windows/nactl-windows-x64.zip
+        retention-days: 90
+
+  create-release:
+    needs: [build-macos, build-macos-arm, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Display downloaded artifacts
+      run: ls -R artifacts
+
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: nactl ${{ steps.version.outputs.version }}
+        draft: true
+        prerelease: false
+        generate_release_notes: true
+        files: |
+          artifacts/nactl-macos-release/nactl-macos-x64.zip
+          artifacts/nactl-macos-release/nactl-macos-x64.tar.gz
+          artifacts/nactl-macos-arm64-release/nactl-macos-arm64.zip
+          artifacts/nactl-macos-arm64-release/nactl-macos-arm64.tar.gz
+          artifacts/nactl-windows-release/nactl-windows-x64.zip
+        body: |
+          ## nactl ${{ steps.version.outputs.version }}
+
+          Network Admin Control CLI tool for FoFo Lifeline.
+
+          ### Downloads
+
+          | Platform | Architecture | File |
+          |----------|--------------|------|
+          | macOS | Intel (x64) | `nactl-macos-x64.zip` |
+          | macOS | Apple Silicon (ARM64) | `nactl-macos-arm64.zip` |
+          | Windows | x64 | `nactl-windows-x64.zip` |
+
+          ### Installation
+
+          **macOS:**
+          ```bash
+          unzip nactl-macos-*.zip
+          sudo cp nactl /usr/local/bin/
+          ```
+
+          **Windows:**
+          Extract `nactl-windows-x64.zip` and add to PATH or copy to `C:\Windows\System32\`
+
+          ### What's New
+
+          See the auto-generated release notes below for changes.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

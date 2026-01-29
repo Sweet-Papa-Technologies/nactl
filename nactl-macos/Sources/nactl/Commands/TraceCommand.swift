@@ -14,6 +14,9 @@ struct TraceCommand: ParsableCommand {
     @Option(name: .customLong("max-hops"), help: "Maximum number of hops")
     var maxHops: Int = 30
 
+    @Option(name: [.short, .customLong("timeout")], help: "Timeout in milliseconds (0 for no timeout)")
+    var timeout: Int = 60000
+
     @OptionGroup var globalOptions: GlobalOptions
 
     mutating func run() throws {
@@ -22,7 +25,7 @@ struct TraceCommand: ParsableCommand {
             exitWithError(.invalidArguments("Invalid host format: \(host)"), json: globalOptions.shouldOutputJSON, pretty: globalOptions.pretty)
         }
 
-        let result = executeTraceroute(host: host, maxHops: maxHops)
+        let result = executeTraceroute(host: host, maxHops: maxHops, timeout: timeout)
 
         switch result {
         case .success(let data):
@@ -36,16 +39,26 @@ struct TraceCommand: ParsableCommand {
         }
     }
 
-    private func executeTraceroute(host: String, maxHops: Int) -> Result<TraceResultData, NactlError> {
+    private func executeTraceroute(host: String, maxHops: Int, timeout: Int) -> Result<TraceResultData, NactlError> {
         var hops: [TraceHop] = []
         var destinationReached = false
 
+        // Calculate timeout: use user-specified value, or calculate based on hops if 0
+        let effectiveTimeout: Double
+        if timeout == 0 {
+            // No timeout - use a very large value (1 hour)
+            effectiveTimeout = 3600.0
+        } else {
+            effectiveTimeout = Double(timeout) / 1000.0  // Convert ms to seconds
+        }
+
         // Execute traceroute with max hops
-        // -m = max TTL, -q 3 = 3 queries per hop
+        // -m = max TTL, -q 3 = 3 queries per hop, -w = wait time per probe
+        let waitTimePerProbe = min(5, max(1, Int(effectiveTimeout) / maxHops / 3))
         let result = ShellExecutor.execute(
             "/usr/sbin/traceroute",
-            arguments: ["-m", String(maxHops), "-q", "3", host],
-            timeout: Double(maxHops * 5 + 10)
+            arguments: ["-m", String(maxHops), "-q", "3", "-w", String(waitTimePerProbe), host],
+            timeout: effectiveTimeout
         )
 
         // Parse output line by line

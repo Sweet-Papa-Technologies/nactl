@@ -64,6 +64,10 @@ nactl ping google.com --count 10 --timeout 2000
 # Trace route with max hops
 nactl trace cloudflare.com --max-hops 20
 
+# Trace with custom timeout (milliseconds)
+nactl trace cloudflare.com --timeout 30000  # 30 second timeout
+nactl trace cloudflare.com --timeout 0      # No timeout
+
 # Flush DNS cache
 nactl dns flush
 

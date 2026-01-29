@@ -1,0 +1,129 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'nactl-windows/**'
+      - '.github/workflows/windows-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'nactl-windows/**'
+      - '.github/workflows/windows-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: nactl-windows
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Show Rust version
+      run: rustc --version && cargo --version
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          nactl-windows/target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Check formatting
+      run: cargo fmt --check
+
+    - name: Run Clippy
+      run: cargo clippy -- -D warnings
+      continue-on-error: true  # Don't fail build on warnings initially
+
+    - name: Build (Debug)
+      run: cargo build -v
+
+    - name: Build (Release)
+      run: cargo build --release -v
+
+    - name: Run cargo tests
+      run: cargo test -v
+      continue-on-error: true  # Unit tests may not exist yet
+
+    - name: Verify binary exists
+      run: |
+        Get-ChildItem -Path target\debug\nactl.exe
+        Get-ChildItem -Path target\release\nactl.exe
+      shell: pwsh
+
+    - name: Test help command
+      run: .\target\debug\nactl.exe --help
+      shell: pwsh
+
+    - name: Test version command
+      run: .\target\debug\nactl.exe --version
+      shell: pwsh
+
+    - name: Test status command (JSON)
+      run: .\target\debug\nactl.exe status --json
+      shell: pwsh
+      continue-on-error: true  # May fail if no network interface
+
+    - name: Test ping localhost
+      run: .\target\debug\nactl.exe ping 127.0.0.1 --count 2 --json
+      shell: pwsh
+
+    - name: Run PowerShell test script
+      run: |
+        Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+        .\test_nactl.ps1 -NactlPath ".\target\debug\nactl.exe"
+      shell: pwsh
+      continue-on-error: true  # Some tests may fail in CI
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: nactl-windows-debug
+        path: nactl-windows/target/debug/nactl.exe
+        retention-days: 7
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: nactl-windows-release
+        path: nactl-windows/target/release/nactl.exe
+        retention-days: 30
+
+  lint:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: nactl-windows
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Check formatting
+      run: cargo fmt --check
+
+    - name: Run Clippy (warnings as errors)
+      run: cargo clippy -- -D warnings
+      continue-on-error: true

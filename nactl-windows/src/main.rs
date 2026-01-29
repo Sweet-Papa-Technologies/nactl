@@ -65,6 +65,10 @@ enum Commands {
         /// Maximum number of hops
         #[arg(short = 'm', long = "max-hops", default_value = "30")]
         max_hops: u32,
+
+        /// Timeout in milliseconds (0 for no timeout)
+        #[arg(short = 't', long, default_value = "60000")]
+        timeout: u32,
     },
 
     /// DNS management commands
@@ -168,7 +172,7 @@ fn main() -> ExitCode {
             timeout,
         } => ping::execute(&host, count, timeout, format),
 
-        Commands::Trace { host, max_hops } => trace::execute(&host, max_hops, format),
+        Commands::Trace { host, max_hops, timeout } => trace::execute(&host, max_hops, timeout, format),
 
         Commands::Dns { action } => match action {
             DnsCommands::Flush => dns::flush(format),
