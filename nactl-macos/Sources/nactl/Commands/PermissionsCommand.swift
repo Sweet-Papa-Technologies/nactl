@@ -1,19 +1,17 @@
 import ArgumentParser
 import Foundation
 import CoreLocation
-import AppKit
 
-/// nactl permissions - Check and manage required permissions
+/// nactl permissions - Check Location Services permission status (informational only)
+/// Note: CLI tools cannot obtain Location Services permission on macOS - this command
+/// reports the current status for diagnostic purposes.
 struct PermissionsCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "permissions",
-        abstract: "Check and manage required permissions (Location Services)"
+        abstract: "Check Location Services permission status (informational)"
     )
 
     @OptionGroup var globalOptions: GlobalOptions
-
-    @Flag(name: [.long], help: "Open System Settings to grant permissions")
-    var fix: Bool = false
 
     mutating func run() throws {
         let result = checkPermissions()
@@ -24,22 +22,8 @@ struct PermissionsCommand: ParsableCommand {
             printHumanReadable(result)
         }
 
-        // If --fix flag and permissions not granted, open settings
-        if fix && !result.locationServices.granted {
-            if !globalOptions.shouldOutputJSON {
-                print("")
-                print("Opening System Settings to Location Services...")
-                print("Please enable Location Services for: \(result.locationServices.terminalApp)")
-            }
-            PermissionsHelper.openLocationSettings()
-        }
-
-        // Exit with appropriate code
-        if result.allGranted {
-            Darwin.exit(NactlExitCode.success.rawValue)
-        } else {
-            Darwin.exit(NactlExitCode.locationServicesDenied.rawValue)
-        }
+        // Always exit successfully - this is an informational command
+        Darwin.exit(NactlExitCode.success.rawValue)
     }
 
     private func checkPermissions() -> PermissionsData {
@@ -62,7 +46,7 @@ struct PermissionsCommand: ParsableCommand {
                 status: "disabled_system",
                 message: "Location Services is disabled system-wide",
                 terminalApp: terminalApp,
-                suggestion: "Enable Location Services in System Settings > Privacy & Security > Location Services"
+                suggestion: nil  // No actionable suggestion for CLI tools
             )
         }
 
@@ -91,9 +75,9 @@ struct PermissionsCommand: ParsableCommand {
             return LocationServicesStatus(
                 granted: false,
                 status: "denied",
-                message: "Location Services permission denied for \(terminalApp)",
+                message: "Location Services not available for CLI tools",
                 terminalApp: terminalApp,
-                suggestion: "Enable Location Services for \(terminalApp) in System Settings > Privacy & Security > Location Services"
+                suggestion: nil  // CLI tools cannot obtain this permission
             )
         case .restricted:
             return LocationServicesStatus(
@@ -101,15 +85,15 @@ struct PermissionsCommand: ParsableCommand {
                 status: "restricted",
                 message: "Location Services is restricted (parental controls or MDM)",
                 terminalApp: terminalApp,
-                suggestion: "Contact your administrator to enable Location Services"
+                suggestion: nil
             )
         case .notDetermined:
             return LocationServicesStatus(
                 granted: false,
                 status: "not_determined",
-                message: "Location Services permission not yet requested",
+                message: "Location Services not available for CLI tools",
                 terminalApp: terminalApp,
-                suggestion: "Run 'nactl permissions --fix' to open System Settings, then enable Location Services for \(terminalApp)"
+                suggestion: nil  // CLI tools cannot request this permission
             )
         @unknown default:
             return LocationServicesStatus(
@@ -117,30 +101,27 @@ struct PermissionsCommand: ParsableCommand {
                 status: "unknown",
                 message: "Location Services status unknown",
                 terminalApp: terminalApp,
-                suggestion: "Check System Settings > Privacy & Security > Location Services"
+                suggestion: nil
             )
         }
     }
 
     private func printHumanReadable(_ data: PermissionsData) {
-        print("nactl Permissions Check")
-        print("=======================")
+        print("nactl Permissions Status")
+        print("========================")
         print("")
-        print("Location Services (required for Wi-Fi scanning):")
+        print("Location Services:")
         print("  Status: \(data.locationServices.status)")
         print("  Terminal App: \(data.locationServices.terminalApp)")
 
         if data.locationServices.granted {
-            print("  ✓ Permission granted - Wi-Fi scanning will show network names")
+            print("  ✓ Permission granted - full Wi-Fi information available")
         } else {
-            print("  ✗ Permission NOT granted - Wi-Fi networks will appear as '<Hidden>'")
-            if let suggestion = data.locationServices.suggestion {
-                print("")
-                print("  How to fix:")
-                print("  \(suggestion)")
-            }
+            print("  ○ Not available - using fallback methods for Wi-Fi data")
             print("")
-            print("  Tip: Run 'nactl permissions --fix' to open System Settings automatically")
+            print("  Note: CLI tools cannot obtain Location Services permission on macOS.")
+            print("  This is expected behavior. nactl will use system_profiler for SSID")
+            print("  and return limited Wi-Fi data where full access is unavailable.")
         }
     }
 }
@@ -173,14 +154,7 @@ struct LocationServicesStatus: Encodable {
     }
 }
 
-// MARK: - Helper
-
-struct PermissionsHelper {
-    /// Open System Settings to Location Services pane
-    static func openLocationSettings() {
-        // macOS Ventura and later
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-}
+// Note: PermissionsHelper for opening System Settings has been intentionally removed.
+// CLI tools/daemons cannot obtain Location Services permission on macOS - they don't
+// appear in System Preferences > Location Services. Opening the settings pane would
+// only confuse users since there's no action they can take.

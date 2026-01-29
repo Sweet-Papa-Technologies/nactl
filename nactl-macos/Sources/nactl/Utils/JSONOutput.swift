@@ -105,7 +105,7 @@ enum NactlError: Error {
         case .permissionDenied:
             return "Run with elevated permissions using sudo"
         case .locationServicesDenied:
-            return "Grant Location Services permission in System Preferences > Security & Privacy > Privacy > Location Services"
+            return nil  // No actionable suggestion - CLI tools cannot obtain Location Services permission
         case .interfaceNotFound:
             return "Check available interfaces with 'networksetup -listallhardwareports'"
         default:

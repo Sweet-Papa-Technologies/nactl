@@ -27,10 +27,25 @@ struct WifiNetworkData: Encodable {
 struct WifiScanData: Encodable {
     let networks: [WifiNetworkData]
     let scanTimeMs: Int
+    let scanAvailable: Bool
+    let limitedMode: Bool
+    let limitedReason: String?
 
     enum CodingKeys: String, CodingKey {
         case networks
         case scanTimeMs = "scan_time_ms"
+        case scanAvailable = "scan_available"
+        case limitedMode = "limited_mode"
+        case limitedReason = "limited_reason"
+    }
+
+    /// Standard initializer with all fields
+    init(networks: [WifiNetworkData], scanTimeMs: Int, scanAvailable: Bool = true, limitedMode: Bool = false, limitedReason: String? = nil) {
+        self.networks = networks
+        self.scanTimeMs = scanTimeMs
+        self.scanAvailable = scanAvailable
+        self.limitedMode = limitedMode
+        self.limitedReason = limitedReason
     }
 }
 

@@ -40,27 +40,52 @@ struct StatusCommand: ParsableCommand {
         var channel: Int?
         var frequency: String?
         var linkSpeed: String?
+        var limitedMode = false
+        var limitedReason: String? = nil
 
         // Check if Wi-Fi is the primary connection
         if let wifi = wifiInterface, wifi.powerOn() {
-            if let currentSSID = wifi.ssid() {
+            // Try to get SSID from CoreWLAN first
+            var currentSSID = wifi.ssid()
+
+            // If CoreWLAN returns nil (likely due to Location Services), try fallback
+            if currentSSID == nil {
+                currentSSID = getSSIDFallback()
+                if currentSSID != nil {
+                    limitedMode = true
+                    limitedReason = "Location Services not available - using fallback methods"
+                }
+            }
+
+            if let finalSSID = currentSSID {
                 connected = true
                 connectionType = "wifi"
                 activeInterface = wifiInterfaceName ?? wifi.interfaceName ?? "en0"
-                ssid = currentSSID
-                bssid = wifi.bssid()
-                signalRssi = wifi.rssiValue()
-                // Convert RSSI to percentage (approximate)
-                // RSSI typically ranges from -100 (weak) to -30 (strong)
-                if let rssi = signalRssi {
-                    signalStrength = max(0, min(100, 2 * (rssi + 100)))
+                ssid = finalSSID
+
+                // BSSID and RSSI require Location Services - may return nil
+                bssid = wifi.bssid()  // Will be nil without Location Services
+                let rssiValue = wifi.rssiValue()
+                // rssiValue() returns 0 when unavailable, which is an invalid RSSI
+                if rssiValue != 0 {
+                    signalRssi = rssiValue
+                    // Convert RSSI to percentage (approximate)
+                    // RSSI typically ranges from -100 (weak) to -30 (strong)
+                    signalStrength = max(0, min(100, 2 * (rssiValue + 100)))
                 }
+
                 if let wlanChannel = wifi.wlanChannel() {
                     channel = wlanChannel.channelNumber
                     frequency = frequencyBand(for: wlanChannel.channelNumber)
                 }
-                if let rate = wifi.transmitRate() as Double? {
+                if let rate = wifi.transmitRate() as Double?, rate > 0 {
                     linkSpeed = "\(Int(rate)) Mbps"
+                }
+
+                // If we got SSID but no BSSID/RSSI, we're in limited mode
+                if bssid == nil && !limitedMode {
+                    limitedMode = true
+                    limitedReason = "Location Services not available - BSSID and signal strength unavailable"
                 }
             }
         }
@@ -124,8 +149,40 @@ struct StatusCommand: ParsableCommand {
             subnetMask: subnetMask,
             gateway: gateway,
             dnsServers: dnsServers,
-            macAddress: macAddress
+            macAddress: macAddress,
+            limitedMode: limitedMode,
+            limitedReason: limitedReason
         )
+    }
+
+    /// Fallback method to get current SSID using system_profiler when CoreWLAN is unavailable
+    /// This works without Location Services permission
+    private func getSSIDFallback() -> String? {
+        // Use system_profiler with PlistBuddy for reliable parsing
+        let result = ShellExecutor.shell("""
+            /usr/libexec/PlistBuddy -c 'Print :0:_items:0:spairport_airport_interfaces:0:spairport_current_network_information:_name' /dev/stdin <<< "$(/usr/sbin/system_profiler SPAirPortDataType -xml 2>/dev/null)" 2>/dev/null
+            """)
+
+        if result.succeeded {
+            let ssid = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !ssid.isEmpty && !ssid.contains("Does Not Exist") {
+                return ssid
+            }
+        }
+
+        // Alternative fallback using awk parsing
+        let altResult = ShellExecutor.shell("""
+            /usr/sbin/system_profiler SPAirPortDataType 2>/dev/null | awk '/Current Network/ {getline;$1=$1;print;exit}'
+            """)
+
+        if altResult.succeeded {
+            let ssid = altResult.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !ssid.isEmpty {
+                return ssid
+            }
+        }
+
+        return nil
     }
 
     private func printHumanReadable(_ status: NetworkStatusData) {
@@ -173,6 +230,10 @@ struct StatusCommand: ParsableCommand {
         }
         if let mac = status.macAddress {
             print("MAC Address: \(mac)")
+        }
+        if status.limitedMode {
+            print("")
+            print("Note: Running in limited mode (some WiFi data unavailable)")
         }
     }
 }

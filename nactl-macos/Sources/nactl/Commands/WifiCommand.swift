@@ -24,46 +24,6 @@ struct WifiCommand: ParsableCommand {
         mutating func run() throws {
             let startTime = Date()
 
-            // Check Location Services permission
-            // Note: For CLI apps, permission is tied to the TERMINAL APP, not this binary
-            let terminalApp = ProcessInfo.processInfo.environment["TERM_PROGRAM"] ?? "Terminal"
-
-            // Check if Location Services is enabled system-wide
-            if !CLLocationManager.locationServicesEnabled() {
-                exitWithError(
-                    .locationServicesDenied,
-                    message: "Location Services disabled system-wide. Run 'nactl permissions --fix' to open System Settings",
-                    json: globalOptions.shouldOutputJSON,
-                    pretty: globalOptions.pretty
-                )
-            }
-
-            // Check authorization status
-            let manager = CLLocationManager()
-            let authStatus = manager.authorizationStatus
-
-            switch authStatus {
-            case .denied, .restricted:
-                exitWithError(
-                    .locationServicesDenied,
-                    message: "Location Services permission denied. Run 'nactl permissions --fix' to open System Settings and enable for \(terminalApp)",
-                    json: globalOptions.shouldOutputJSON,
-                    pretty: globalOptions.pretty
-                )
-            case .notDetermined:
-                // Permission not yet granted - inform user how to fix
-                exitWithError(
-                    .locationServicesDenied,
-                    message: "Location Services permission required. Run 'nactl permissions --fix' to open System Settings and enable for \(terminalApp)",
-                    json: globalOptions.shouldOutputJSON,
-                    pretty: globalOptions.pretty
-                )
-            case .authorizedAlways, .authorizedWhenInUse, .authorized:
-                break // Good to go
-            @unknown default:
-                break
-            }
-
             // Get Wi-Fi client and interface
             let client = CWWiFiClient.shared()
             guard let interface = client.interface() else {
@@ -73,6 +33,30 @@ struct WifiCommand: ParsableCommand {
             // Check if Wi-Fi is powered on
             guard interface.powerOn() else {
                 exitWithError(.notAvailable("Wi-Fi is turned off"), json: globalOptions.shouldOutputJSON, pretty: globalOptions.pretty)
+            }
+
+            // Check if Location Services is available for WiFi scanning
+            // Note: CLI tools cannot obtain Location Services permission on macOS
+            let hasLocationPermission = checkLocationServicesAvailable()
+
+            if !hasLocationPermission {
+                // Location Services unavailable - return gracefully with limited mode
+                // This is expected behavior for CLI tools, not an error
+                let scanTimeMs = Int(Date().timeIntervalSince(startTime) * 1000)
+                let data = WifiScanData(
+                    networks: [],
+                    scanTimeMs: scanTimeMs,
+                    scanAvailable: false,
+                    limitedMode: true,
+                    limitedReason: "WiFi network scanning requires Location Services (not available for CLI tools)"
+                )
+
+                if globalOptions.shouldOutputJSON {
+                    JSONOutput.success(data, pretty: globalOptions.pretty)
+                } else {
+                    printLimitedModeMessage(data)
+                }
+                return
             }
 
             // Get list of known networks for the "known" flag
@@ -126,12 +110,60 @@ struct WifiCommand: ParsableCommand {
                 }
 
             } catch let error as NSError {
-                // Check for specific error codes
-                if error.code == -3931 { // kCWErrNotAuthorized or similar
-                    exitWithError(.locationServicesDenied, json: globalOptions.shouldOutputJSON, pretty: globalOptions.pretty)
+                // Check for specific error codes indicating permission issues
+                if error.code == -3931 || error.code == -3930 { // kCWErrNotAuthorized or similar
+                    // Return gracefully with limited mode instead of error
+                    let scanTimeMs = Int(Date().timeIntervalSince(startTime) * 1000)
+                    let data = WifiScanData(
+                        networks: [],
+                        scanTimeMs: scanTimeMs,
+                        scanAvailable: false,
+                        limitedMode: true,
+                        limitedReason: "WiFi network scanning requires Location Services (not available for CLI tools)"
+                    )
+
+                    if globalOptions.shouldOutputJSON {
+                        JSONOutput.success(data, pretty: globalOptions.pretty)
+                    } else {
+                        printLimitedModeMessage(data)
+                    }
+                    return
                 }
                 exitWithError(.commandFailed("Wi-Fi scan failed: \(error.localizedDescription)"), json: globalOptions.shouldOutputJSON, pretty: globalOptions.pretty)
             }
+        }
+
+        /// Check if Location Services is available (does not prompt or open System Settings)
+        private func checkLocationServicesAvailable() -> Bool {
+            // Check if Location Services is enabled system-wide
+            guard CLLocationManager.locationServicesEnabled() else {
+                return false
+            }
+
+            // Check authorization status
+            let manager = CLLocationManager()
+            let authStatus = manager.authorizationStatus
+
+            switch authStatus {
+            case .authorizedAlways, .authorizedWhenInUse, .authorized:
+                return true
+            case .denied, .restricted, .notDetermined:
+                return false
+            @unknown default:
+                return false
+            }
+        }
+
+        private func printLimitedModeMessage(_ data: WifiScanData) {
+            print("Wi-Fi Scan: Limited Mode")
+            print("Scan time: \(data.scanTimeMs)ms")
+            print("")
+            print("Network scanning is not available.")
+            if let reason = data.limitedReason {
+                print("Reason: \(reason)")
+            }
+            print("")
+            print("Use 'nactl status' to see current network connection info.")
         }
 
         private func getKnownNetworkSSIDs(interface: CWInterface) -> Set<String> {

@@ -17,6 +17,8 @@ struct NetworkStatusData: Encodable {
     let gateway: String?
     let dnsServers: [String]
     let macAddress: String?
+    let limitedMode: Bool
+    let limitedReason: String?
 
     enum CodingKeys: String, CodingKey {
         case connected
@@ -34,6 +36,8 @@ struct NetworkStatusData: Encodable {
         case gateway
         case dnsServers = "dns_servers"
         case macAddress = "mac_address"
+        case limitedMode = "limited_mode"
+        case limitedReason = "limited_reason"
     }
 }
 
